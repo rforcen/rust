@@ -1,0 +1,20 @@
+[package]
+name = "mandelbrot"
+version = "0.1.0"
+authors = ["asd"]
+edition = "2018"
+
+[build]
+target-dir = "./common_build"
+
+[profile.release]
+debug = false
+lto = false # "fat"
+codegen-units = 8
+opt-level = 3
+overflow-checks = false
+
+[dependencies]
+num = "0.3.1"
+image = "0.23.12"
+rayon = "1.5.0"
