@@ -1,0 +1,13 @@
+[package]
+name = "queens"
+
+version = "0.1.0"
+authors = ["asd"]
+edition = "2018"
+
+
+[dependencies]
+druid = "*"
+rand = "*"
+scoped-pool = "*"
+num_cpus = "*"
