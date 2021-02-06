@@ -8,6 +8,10 @@
 
 
 use druid::{ kurbo::{Rect, Ellipse}, widget::prelude::*, {Color, Point}};
+use druid::{
+    AppDelegate, AppLauncher, Command, Data, DelegateCtx, Env, ExtEventSink, Lens, LocalizedString,
+    Selector, Target, Widget, WidgetExt, WindowDesc,
+};
 use std::{{thread, time}, sync::{Arc, Mutex, mpsc::{channel, Sender, Receiver}}};
 use std::thread::JoinHandle;
 use num_cpus;
@@ -16,6 +20,7 @@ use num_cpus;
 use scoped_pool::Pool;
 
 use std::ops::{Index, IndexMut};
+
 
 pub fn rand<T>(n : i32) -> i32 {
 	use rand::Rng;
@@ -28,19 +33,20 @@ pub fn rand_usize(n : usize) -> usize {
 	use rand::Rng;
 	let mut rng = rand::thread_rng();
 		
-	rng.gen::<usize>() % n as usize
+	if n!=0 { rng.gen::<usize>() % n as usize } else { 0 }
 }
 
 
 // Board
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Data, Default, PartialEq)]
 pub struct Board {
 	n : i32,
-	board : Vec<i32>,
-	ld: Vec<bool>,
-	rd: Vec<bool>,
-	cl: Vec<bool>
+	#[data(ignore)]	board : Vec<i32>,
+	#[data(ignore)]	ld: Vec<bool>,
+	#[data(ignore)]	rd: Vec<bool>,
+	#[data(ignore)]	cl: Vec<bool>
 }
+
 
 impl Board {
 	fn new(n : i32) -> Self{ 
@@ -90,33 +96,48 @@ impl Board {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Data, Default)]
 pub struct Queen {
 	pub n 				: i32,
-	pub board 			: Board,
+	#[data(ignore)]	pub board 			: Board,
 	pub m_abort 		: bool,
-	pub count_evals 	: u128,
-	pub solutions 		: Vec<Board>,
+	pub count_evals 	: Arc<Mutex<u128>>,
+
+	#[data(ignore)]	pub solutions 		: Vec<Board>,
+	pub current_sol 	: usize,
+	pub count_solutions : Arc<Mutex<usize>>,
+	max_solutions 		: usize, // if 0 -> all
 }
 
 impl Index<usize> for Queen { // index a=v[i]
 	type Output = i32;
-    fn index(&self, idx: usize) -> &i32 {
-		&self.board.board[idx]
-    }
+    fn index(&self, idx: usize) -> &i32 {	&self.board.board[idx]    }
 }
 
 impl Queen {
 	pub fn new(n : i32) -> Self {
-		Self { n, board : Board::new(n), m_abort : false, count_evals :0, solutions : vec![] }
+		Self { n, board : Board::new(n), 
+			m_abort : false, count_evals : Arc::new(Mutex::new(0)), 
+			solutions : vec![], current_sol : 0 , count_solutions : Arc::new(Mutex::new(0)), max_solutions : 0 }
 	}
 
 	pub fn clear(&mut self) {
-		self.m_abort=false;
-		self.count_evals=0;
-		self.board=Board::new(self.n);
-		self.solutions.clear()
+		self.clear_counters();
+		self.board=Board::new(self.n);		
 	}
+	pub fn clear_counters(&mut self) {
+		self.m_abort=false;
+		self.count_evals = Arc::new(Mutex::new(0));
+		self.solutions.clear();
+		self.current_sol = 0;
+		self.count_solutions = Arc::new(Mutex::new(0));
+	}
+
+	pub fn get_evals(&self) -> u128   {	*self.count_evals.lock().unwrap()	}
+	fn add_evals(&self, n : u128) {	*self.count_evals.lock().unwrap() += n	}
+	fn add_eval_n(&self) { 	*self.count_evals.lock().unwrap() += self.n as u128 }
+
+	pub fn set_max_solutions(&mut self, ms : usize) { self.max_solutions = ms }
 
 	pub fn is_valid(&self) -> bool {
 		let mut ok = true;
@@ -134,7 +155,42 @@ impl Queen {
 
 	pub fn save_solution(&mut self) {
 		if self.is_valid() {
-			self.solutions.push(self.board.clone())
+			if self.max_solutions != 0 {
+				if let Ok(mut cs) = self.count_solutions.lock() { 
+					if *cs >= self.max_solutions { self.m_abort  = true }
+					else { 
+						*cs += 1;
+						self.solutions.push(self.board.clone())
+					}
+				}
+			} else { // 0 -> all
+				if let Ok(mut cs) = self.count_solutions.lock() { 
+					*cs += 1;
+					self.solutions.push(self.board.clone())
+				}
+			}
+		} else {
+			self.m_abort = true;
+		}
+	}
+
+	pub fn sort_solutions_unique(&mut self) {
+		self.solutions.sort_by_key(|k| k.board.clone());
+		self.solutions.dedup(); // remove dups
+	}
+
+	pub fn prev_solution(&mut self) {
+		if self.has_solutions() {
+			if self.current_sol == 0 { self.current_sol = self.solutions.len()-1 }
+			else { self.current_sol -= 1 }			
+			self.set_solution(self.current_sol);
+		}
+	}
+	pub fn next_solution(&mut self) {
+		if self.has_solutions() {
+			self.current_sol += 1;
+			if self.current_sol >= self.solutions.len() {	self.current_sol = 0	}
+			self.set_solution(self.current_sol);
 		}
 	}
 
@@ -143,11 +199,17 @@ impl Queen {
 	}
 
 	pub fn set_solution(&mut self, ix : usize) {
-		self.board = self.solutions[ix].clone();
+		if ix < self.solutions.len() {
+			self.board = self.solutions[ix].clone();
+		}
 	}
 
-	pub fn set_random_solution(&mut self) {
-		self.set_solution(rand_usize(self.solutions.len()))
+	pub fn has_solutions(&self) -> bool { ! self.solutions.is_empty() }
+
+	pub fn set_random_solution(&mut self) -> usize {
+		let rs = rand_usize(self.solutions.len());
+		self.set_solution(rs);
+		rs
 	}
 
 	pub fn scan(&mut self, col : i32) {
@@ -163,7 +225,7 @@ impl Queen {
 						self.board.reset(col, i);  // unmove
 					}
 				}
-				self.count_evals+=self.n as u128
+				self.add_eval_n();
 			}
 		}
 	}
@@ -181,7 +243,7 @@ impl Queen {
 						self.board.reset(col, i);  // unmove
 					}
 				}
-				self.count_evals+=self.n as u128
+				self.add_eval_n();
 			}
 		}
 	}
@@ -205,13 +267,19 @@ impl Queen {
 		self.count_evals=other.count_evals;
 	}
 
-	// multithread 
+	// multithread section
+	fn get_running(running : &Arc<Mutex<bool>>) -> bool { // get Arc<Mutex<bool>> value
+		if let Ok(_running) = running.lock() { *_running } else { false } 
+	}
 
 	pub fn scan_first_mt(&mut self, col : i32, running : &Arc<Mutex<bool>> ) {
-
-		if !self.m_abort && if let Ok(mutex) = running.try_lock() { *mutex } else { false /* lock poisoned */} {
+	
+		self.m_abort = ! Self::get_running(running);
+		
+		if !self.m_abort { 
 			if col >= self.n { // found THE solution -> save & stop
 				self.save_solution(); 
+
 				*running.lock().unwrap() = false; // lock in this scope
 				self.m_abort = true;
 			} else {
@@ -227,7 +295,34 @@ impl Queen {
 						self.board.reset(col, i);  // unmove
 					}					
 				}
-				self.count_evals+=self.n as u128
+				self.add_eval_n();
+			}
+		}
+	}
+
+	pub fn scan_all_mt(&mut self, col : i32, running : &Arc<Mutex<bool>> ) {
+
+		self.m_abort = ! Self::get_running(running);
+
+		if !self.m_abort {
+			if col >= self.n { // found solution -> save 
+				self.save_solution(); 
+			
+				if self.m_abort { *running.lock().unwrap() = false }
+			} else {
+				for i in 0..self.n {
+					
+					if self.m_abort { break }
+
+					if self.board.is_valid_position(col, i) {
+						self.board.set(col, i);
+								
+						self.scan_all_mt(col + 1, running);  // recur to place rest
+				
+						self.board.reset(col, i);  // unmove
+					}					
+				}
+				self.add_eval_n();
 			}
 		}
 	}
@@ -235,40 +330,56 @@ impl Queen {
 	// proof that a clone of Arc<Mutex> modifies value in a different thread
 	// affecting all threads with this parameter
 
+	
 	pub fn test01(&self) {
+
+		use std::sync::atomic::{AtomicUsize, Ordering};
+
 		fn set(running : &Arc<Mutex<bool>>, val : bool) {
 			if let Ok(mut lr) = running.lock() { *lr = val }  // when this is modified -> wait value is affected
 		}
-		fn wait(running : &Arc<Mutex<bool>>) {			
-			while if let Ok(mutex) = running.try_lock() { *mutex } else { false } {}
+		fn wait(running : &Arc<Mutex<bool>>, sum : &Arc<Mutex<u32>>, asum : &Arc<AtomicUsize>) {			
+			while if let Ok(mutex) = running.try_lock() { *mutex } else { false } {
+				*sum.lock().unwrap() += 1;
+				asum.fetch_add(1, Ordering::SeqCst);
+			}
 		}
 
-		println!("**** testing arc<mutex>");
-
 		const N : usize = 80;
-		Pool::new(N).scoped(|scope| {
-			let running = Arc::new(Mutex::new(true)); // common running mutex, first found quit all			
+		let running = Arc::new(Mutex::new(true)); // common running mutex, first found quit all			
+		let sum = Arc::new(Mutex::new(0_u32)); 
+		let asum = Arc::new(AtomicUsize::new(0));
+
+		println!("**** testing arc<mutex> with values: running = {}, sum = {}, asum = {}", 
+			running.lock().unwrap(), sum.lock().unwrap(), asum.load(Ordering::SeqCst));
+
+		let pool = Pool::new(N);
+		pool.scoped(|scope| {		
 		
 			print!("waiting..."); // run N wating threads
 			for i in 0..N {
 				print!("{} ", i);
 				
 				let running = running.clone();				
+				let sum = sum.clone();				
+				let asum = asum.clone();				
 							
 				scope.execute(move || {
-					wait(&running); // -> set(&rcl, false) to release
+					wait(&running, &sum, &asum); // -> set(&rcl, false) to release
 					print!("r{} ", i)
 				});
 			}
 
 			// thread::sleep(time::Duration::from_millis(1000));
 
-			println!("\nreleasing...");
+			println!("\nreleasing..., sum={}, asum={}", *sum.lock().unwrap(), asum.load(Ordering::SeqCst));
 			
 			let rcl = Arc::clone(&running);
-			scope.execute(move || {	set(&rcl, false)	});			
-			println!("\ntest completed !!!!!!!!!!")
+			scope.execute(move || {	set(&rcl, false) });			
+			
 		});
+		pool.shutdown();
+		println!("\ntest completed !!!!!!!!!!")
 	}
 
 	pub fn ff_thread(mut self) -> Receiver<Queen>  { // find first solution in a non blocking thread sending result once found
@@ -288,6 +399,7 @@ impl Queen {
 		self.clear();		// generate a vec of queens from n/2, n/2+i+2
 
 		let mut queens = vec![self.clone(); nth];
+		
 
 		let n2 = self.n/2;
 		for i in 0..nth { // col0:i, col1:i+n/2+2
@@ -295,7 +407,8 @@ impl Queen {
 			queens[i].board.set(1, (n2 + i as i32 + 1) % self.n) 
 		}
 		
-		Pool::new(nth).scoped(|scope| {
+		let pool = Pool::new(nth);
+		pool.scoped(|scope| {
 			let running = Arc::new(Mutex::new(true)); // common running mutex, first found quit all
 
 			for q in &mut queens {		
@@ -303,8 +416,62 @@ impl Queen {
 				scope.execute(move || q.scan_first_mt(2, &running) );	
 			}
 		});
+		pool.shutdown();
+		
 
 		self.set( queens.iter().find(|q| !q.solutions.is_empty() ).unwrap().clone() ) // set THE solution found
+	}
+
+	pub fn find_first_solution_mt_control(&mut self, running : &Arc<Mutex<bool>>) {
+		let nth = self.n as usize; // num_cpus::get() as usize; 
+
+		self.clear();		// generate a vec of queens from n/2, n/2+i+2
+
+		let mut queens = vec![self.clone(); nth];
+
+
+		for i in 0..nth { // col0:i, col1:i+n/2+2
+			queens[i].board.set(0, i as i32); 
+		}
+		
+		let pool = Pool::new(nth);
+
+		pool.scoped(|scope| {
+			for q in &mut queens {		
+				let running = Arc::clone(&running);
+				scope.execute(move || q.scan_first_mt(1, &running) );	
+			}
+		});
+
+		pool.shutdown();
+
+		if let Some(fq) = queens.iter().find(|q| !q.solutions.is_empty()) {
+			self.set( fq.clone() ) // set THE solution found
+		}
+	}
+
+	pub fn find_all_solutions_mt_control(&mut self, running : &Arc<Mutex<bool>>) {
+		let nth = self.n as usize; // num_cpus::get() as usize; 
+
+		self.clear();
+
+		let mut queens = vec![self.clone(); nth]; // 1 queen per thread
+		for i in 0..nth { queens[i].board.set(0, i as i32) } // q[i][0]=i
+		
+		let pool = Pool::new(nth);
+
+		pool.scoped(|scope| {
+			for q in &mut queens {		
+				let running = Arc::clone(&running);
+				scope.execute(move || q.scan_all_mt(1, &running) );	
+			}
+		});
+
+		pool.shutdown();
+
+		// aggregate solutions
+		for q in queens { self.solutions.append(&mut q.solutions.clone())	}
+		
 	}
 
 	pub fn print_solutions(&self) {
@@ -392,7 +559,7 @@ impl Queen {
 			q.save_solution()
 		}
 
-		self.solutions.clear();
+		self.clear_counters();
 
 		for _mv in 0..2 {
 			for _mh in 0..2 {
@@ -409,6 +576,7 @@ impl Queen {
 			}
 			mirror_vert(self); // mV
 		}
-		
+
+		self.sort_solutions_unique();		
 	}
 }
