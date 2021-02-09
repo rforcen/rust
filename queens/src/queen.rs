@@ -13,11 +13,11 @@ use druid::{
     Selector, Target, Widget, WidgetExt, WindowDesc,
 };
 use std::{{thread, time}, sync::{Arc, Mutex, mpsc::{channel, Sender, Receiver}}};
-use std::thread::JoinHandle;
+
 use num_cpus;
 
 //extern crate scoped_pool;
-use scoped_pool::Pool;
+use scoped_pool::{Pool, Scope};
 
 use std::ops::{Index, IndexMut};
 
@@ -268,6 +268,36 @@ impl Queen {
 	}
 
 	// multithread section
+	fn get_nth(&self) -> usize { num_cpus::get() }
+	
+	
+	pub fn find_first_solution_mt_fast(&mut self) {
+		let nth = self.get_nth(); // num_cpus::get() as usize; 
+
+		self.clear();		// generate a vec of queens from n/2, n/2+i+2
+
+		let mut queens = vec![self.clone(); nth];
+
+		let n2 = self.n/2;
+		for i in 0..nth { // col0:i, col1:i+n/2+2
+			queens[i].board.set(0, i as i32); 
+			queens[i].board.set(1, (n2 + i as i32 + 1) % self.n) 
+		}
+		
+		let pool = Pool::new(nth);
+		pool.scoped(|scope| {
+			for q in &mut queens {		
+				scope.execute(move || q.scan_first(2) );	
+			}
+		});
+		pool.shutdown();
+		
+		self.set( queens.iter().find(|q| !q.solutions.is_empty() ).unwrap().clone() ) // set THE solution found
+	}
+
+
+	// scan with external stop control on running : &Arc<Mutexbool>> 
+
 	fn get_running(running : &Arc<Mutex<bool>>) -> bool { // get Arc<Mutex<bool>> value
 		if let Ok(_running) = running.lock() { *_running } else { false } 
 	}
@@ -394,12 +424,11 @@ impl Queen {
 		rx
 	}
 	pub fn find_first_solution_mt(&mut self) {
-		let nth = self.n as usize; // num_cpus::get() as usize; 
+		let nth = self.get_nth(); // num_cpus::get() as usize; 
 
 		self.clear();		// generate a vec of queens from n/2, n/2+i+2
 
 		let mut queens = vec![self.clone(); nth];
-		
 
 		let n2 = self.n/2;
 		for i in 0..nth { // col0:i, col1:i+n/2+2
@@ -423,7 +452,7 @@ impl Queen {
 	}
 
 	pub fn find_first_solution_mt_control(&mut self, running : &Arc<Mutex<bool>>) {
-		let nth = self.n as usize; // num_cpus::get() as usize; 
+		let nth = self.get_nth(); // num_cpus::get() as usize; 
 
 		self.clear();		// generate a vec of queens from n/2, n/2+i+2
 
@@ -451,7 +480,7 @@ impl Queen {
 	}
 
 	pub fn find_all_solutions_mt_control(&mut self, running : &Arc<Mutex<bool>>) {
-		let nth = self.n as usize; // num_cpus::get() as usize; 
+		let nth = self.get_nth(); // num_cpus::get() as usize; 
 
 		self.clear();
 
