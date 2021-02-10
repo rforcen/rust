@@ -8,6 +8,11 @@ use std::f32::consts::{PI, E};
 use rayon::prelude::*;
 use std::convert::TryInto;
 use image::{ImageBuffer, Rgb, Rgba};
+use druid::{
+    AppDelegate, AppLauncher, Command, Data, DelegateCtx, Env, ExtEventSink, Lens, LocalizedString,
+    Selector, Target, Widget, WidgetExt, WindowDesc,
+	piet::{ImageBuf, ImageFormat, InterpolationMode},
+};
 
 #[path = "zvm.rs"] mod zvm;
 use zvm::*;
@@ -17,19 +22,30 @@ const PI2 : f32 = PI * 2.0;
 pub type Cf32 = complex<f32>;
 pub type ZFN = fn(Cf32) -> Cf32;
 
+#[derive(Clone, Debug, Data, Default)]
 pub struct DomainColoring {
 	pub w : u32,
 	pub h : u32,
-	pub image : Vec<u32>,
-	pub zvm : ZVm,
+	#[data(ignore)] pub image : Vec<u32>,
+	#[data(ignore)] pub image_u8 : Vec<u8>,	
+	#[data(ignore)] pub zvm : ZVm,
 }
 
 
 impl DomainColoring {
 	pub fn new(w : u32, h : u32, zexpr : &str) -> Self {
-		Self{ w, h, image: vec![], zvm : ZVm::new(zexpr) }
+		Self{ w, h, image: vec![], image_u8 : vec![], zvm : ZVm::new(zexpr) }
 	}
 			
+	pub fn compile(&mut self, zexpr : &str) {
+		self.zvm = ZVm::new(zexpr);
+		self.generate_parallel();
+	}
+
+	pub fn has_image(&self) -> bool {
+		self.image.len() > 0
+	}
+
 	pub fn get_pixel_rgb(&self, index : usize) -> [u8; 3] {
 		// let px = self.image[index];
 		// [((px & 0x00ff_0000) >> 16) as u8, ((px & 0x0000_ff00) >> 8) as u8, ((px & 0x0000_00ff)) as u8]
@@ -41,6 +57,8 @@ impl DomainColoring {
 	}
 
 	pub fn get_size(&self) -> usize { (self.w*self.h) as usize }
+
+	pub fn get_expression(&self) -> String { self.zvm.source.clone() }
 	
 	fn pow3(x:f32) -> f32 { x * x * x }
 
@@ -110,6 +128,22 @@ impl DomainColoring {
 		imgbuf.save(name).unwrap();
 	}
 		
+	pub fn rgb_to_u8(&self) -> Vec<u8> { // rgb(u8) -> u8
+		(0..self.image.len() * 3).into_par_iter().map(|index| {
+			let pixel = self.image[index / 3];
+			let p : [u8; 3] = (pixel.to_be_bytes()[0..3]).try_into().expect("image should have u32 type!");
+			p[index % 3]
+		}).collect()
+	}		
+
+	fn rgba_to_u8(&self) -> &[u8] { // rgba -> u8
+		unsafe {
+			std::slice::from_raw_parts(
+				self.image.as_ptr() as *const u8,
+				self.image.len() * std::mem::size_of::<u32>(),
+			)
+		}
+	}
 	
 	pub fn generate_parallel(&mut self) {
 		let (w, h, zvm, size) = (self.w as usize, self.h as usize, self.zvm.clone(), (self.w * self.h) as usize);
@@ -117,6 +151,7 @@ impl DomainColoring {
 		self.image = (0..size).into_par_iter().map(
 			|index| Self::gen_pixel(&zvm, index, w, h)
 		).collect();
+		self.image_u8 = self.rgb_to_u8();
 	}
 
 	pub fn generate_singleth(&mut self) {
@@ -127,5 +162,29 @@ impl DomainColoring {
 		).collect();
 	}
 		
+	pub fn load_image(&self) -> ImageBuf { // Rgb, RgbaSeparate
+		fn load_image(bytes : &[u8], (w, h) : (u32,u32)) -> ImageBuf { // Rgb, RgbaSeparate
+			ImageBuf::from_raw(bytes, ImageFormat::Rgb, w as usize, h as usize)
+		}
+		load_image(&self.image_u8, (self.w, self.h))
+	}
 	
 }
+
+
+/*
+pub fn test_dc() {	
+
+	let m = 4;
+	let (w, h, func)=(1024 * m, 768 * m, PREDEF_FUNCS[18]);
+
+	let mut dc = dc::DomainColoring::new(w, h, func);
+
+	println!("Domain coloring for {}, size: {} x {} = {} pixels", func, w, h, w*h);
+
+	let t = Instant::now();		dc.generate_singleth();	 	println!("single thrd    : {:?}", Instant::now() - t);
+	let t = Instant::now(); 	dc.generate_parallel();	 	println!("parallel       : {:?}", Instant::now() - t);
+	
+	dc.write_png("dc.png");		
+}
+*/

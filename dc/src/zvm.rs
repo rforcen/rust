@@ -7,11 +7,17 @@
 use std::f32::consts::{PI, E};
 use num::complex::Complex as complex;
 
+use druid::{
+    AppDelegate, AppLauncher, Command, Data, DelegateCtx, Env, ExtEventSink, Lens, LocalizedString,
+    Selector, Target, Widget, WidgetExt, WindowDesc,
+};
 
-#[derive(Debug, Copy, Clone)]
+
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum Symbols {
     SNULL = 0, NUMBER = 1, IDENTi = 2, IDENTz = 3, PLUS = 5, MINUS = 6,
-    MULT = 7, DIV = 8, OPAREN = 9, CPAREN = 10, POWER = 12, PERIOD = 13,
+    MULT = 7, DIV = 8, OPAREN = 9, CPAREN = 10, POWER = 12, PERIOD = 13, COMMA=14,
     
     // function names
     FSIN = 90, FCOS = 91, FTAN = 92, FEXP = 93, FLOG = 94, FLOG10 = 95,
@@ -30,19 +36,19 @@ const PHI : f32 = 0.618033988_f32;
 pub type CF32 = complex<f32>;
 pub type ZFN = fn(CF32) -> CF32;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Data)]
 pub struct ZVm {
-	source		:String,
-	ch		:char,
-	ixs		:usize,
-	sym		:Symbols,
-	ident	:String,
-	nval	:f32,
-	err 	:bool,
-	code	:Vec<u32>,
-	stack	:Vec<CF32>,
+	pub source	:String,
+	#[data(ignore)]ch		:char,
+	#[data(ignore)]ixs		:usize,
+	#[data(ignore)]sym		:Symbols,
+	#[data(ignore)]ident	:String,
+	#[data(ignore)]nval		:f32,
+	#[data(ignore)]err 		:bool,
+	#[data(ignore)]code		:Vec<u32>,
 }
-// mystring.chars().rev().nth(n - 1)
+impl Default for ZVm { fn default() -> Self { ZVm::new("") } }
+
 
 impl ZVm {
 	pub fn new(source : &str) -> Self {
@@ -55,7 +61,6 @@ impl ZVm {
 			nval	:0_f32, 
 			err		:false, 
 			code	:vec![], 
-			stack	:vec![CF32::new(0., 0.); 16],
 		};
 		s.compile();
 		s
@@ -117,11 +122,27 @@ impl ZVm {
 					'(' => Symbols::OPAREN,
 					')' => Symbols::CPAREN,
 					'^' => Symbols::POWER,
-					',' => Symbols::PERIOD,
+					'.' => Symbols::PERIOD,
+					',' => Symbols::COMMA,
 					_   => Symbols::SNULL,				
 				};
 			self.getch();
 		}
+		self.sym
+	}
+
+	fn getsym_check(&mut self, chk_sym : Symbols) -> Symbols {
+		if self.getsym() != chk_sym { self.err = true; self.sym = Symbols::SNULL }
+		self.sym
+	}
+	fn sym_check(&mut self, chk_sym : Symbols) -> Symbols {
+		if self.sym != chk_sym { self.err = true; self.sym = Symbols::SNULL }
+		else { self.getsym(); }
+		self.sym
+	}
+
+	fn getsym_not_null(&mut self) -> Symbols {
+		if self.getsym() == Symbols::SNULL { self.err = true }
 		self.sym
 	}
 
@@ -147,7 +168,7 @@ impl ZVm {
 				Symbols::OPAREN => {
 					self.getsym();
 					self.c_e0();
-					self.getsym();
+					self.sym_check(Symbols::CPAREN);
 				}
 				Symbols::NUMBER => {
 					self.gen(Symbols::PUSHC); // nval
@@ -174,17 +195,17 @@ impl ZVm {
                 Symbols::FACOS | Symbols::FATAN| Symbols::FEXP |  Symbols::FINT  |
                 Symbols::FABS  | Symbols::FLOG | Symbols::FLOG10| Symbols::FSQRT => {
 					let tsym = self.sym;
-                    self.getsym();
+                    self.getsym_check(Symbols::OPAREN);
                     self.c_e3();
                     self.gen(tsym);
 				}
 				Symbols::FC => {
-                    self.getsym();
-                    self.getsym();
+					self.getsym_check(Symbols::OPAREN);
+					self.getsym();
                     self.c_e3();
-                    self.getsym();
+                    self.sym_check(Symbols::COMMA);
                     self.c_e3();
-                    self.getsym();
+                    self.sym_check(Symbols::CPAREN);
                     self.gen(Symbols::FC);
 				},
 				Symbols::SPI => {
@@ -214,7 +235,7 @@ impl ZVm {
 			loop {
 				match self.sym {
 					Symbols::POWER => {
-						self.getsym();
+						self.getsym_not_null();
 						self.c_e2();
 						self.gen(Symbols::POWER);
 					},
@@ -227,18 +248,17 @@ impl ZVm {
 	fn c_e1(&mut self) {
 		if !self.err {
 
-			
 			self.c_e2();
 			
 			loop {
 				match self.sym {
 					Symbols::MULT => {
-						self.getsym();
+						self.getsym_not_null();
 						self.c_e2();
 						self.gen(Symbols::MULT);
 					},
 					Symbols::DIV => {
-						self.getsym();
+						self.getsym_not_null();
 						self.c_e2();
 						self.gen(Symbols::DIV);
 					}
@@ -251,19 +271,18 @@ impl ZVm {
 	fn c_e0(&mut self) {
 		
 		if !self.err {
-
 			
 			self.c_e1();
 			
 			loop {
 				match self.sym {
 					Symbols::PLUS => {
-						self.getsym();
+						self.getsym_not_null();
 						self.c_e1();
 						self.gen(Symbols::PLUS);
 					},
 					Symbols::MINUS => {
-						self.getsym();
+						self.getsym_not_null();
 						self.c_e1();
 						self.gen(Symbols::MINUS);
 					}
@@ -279,14 +298,17 @@ impl ZVm {
 		self.getsym();
 		self.c_e0();
 
+		if self.err { self.code.clear() }
 		self.gen(Symbols::END);
 	}
 	
 	pub fn eval(&self, z: CF32) -> CF32 {
 		
+		if self.err { return CF32::new(0., 0.) }
+
 		let mut pc : usize = 0;
 		let mut sp : usize = 0;
-		let mut stack = self.stack.clone(); // use a clone of stack
+		let mut stack : Vec<CF32> = vec![CF32::new(0.,0.); 16];
 
 		loop {
 			match Self::u32_2_sym(self.code[pc]) {
