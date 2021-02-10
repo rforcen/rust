@@ -4,20 +4,20 @@ version = "0.1.0"
 authors = ["Roberto robertoforcen@gmail.com"]
 edition = "2018"
 
+
 [profile.release]
-debug = false 
+debug = false
 lto = false # "fat"
-codegen-units = 8 
-opt-level = 3 
-overflow-checks = false 
+codegen-units = 8
+opt-level = 3
+overflow-checks = false
 
 [profile.dev]
 opt-level = 0
 
 [dependencies]
-num_cpus = "1.13.0"
-num = "0.3.1"
-image = "0.23.12"
-rayon = "1.5.0"
-# copyless = "0.1.5"
-# palette = "0.5.0"
+num_cpus = "*"
+num = "*"
+image = "*"
+rayon = "*"
+druid = { version = "*", features = ["im"] }
