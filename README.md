@@ -1,26 +1,22 @@
-# rust
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML>
-<HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
-
-</HEAD>
-<BODY LANG="en" DIR="LTR">
-<P>rust developments based in parallel processing &amp; graphics</P>
-<P><BR><BR>
-</P>
-<UL>
-	<LI><P>dc : Domain Coloring</P>
-	<LI><P>mandelbrot fractals</P>
-	<LI><P>voronoi tiles</P>
-	<LI><P>n queens problem</P>
-	<LI><P>symmetric icons 
-	</P>
-</UL>
-<P><BR><BR>
-</P>
-<P>using druid UI builder with multithreaded user control</P>
-<P STYLE="margin-bottom: 0in"><BR>
-</P>
-</BODY>
-</HTML>
+<p># rust</p>
+<p></p>
+<p>rust developments based in parallel processing &amp; graphics</p>
+<ul>
+<li>
+<p>dc : <span style="color: #ff0000;">Domain Coloring</span></p>
+</li>
+<li>
+<p><span style="color: #ff0000;">mandelbrot fractals</span></p>
+</li>
+<li>
+<p><span style="color: #ff0000;">voronoi tiles</span></p>
+</li>
+<li>
+<p><span style="color: #ff0000;">n queens problem</span></p>
+</li>
+<li>
+<p><span style="color: #ff0000;">symmetric icons</span></p>
+</li>
+</ul>
+<p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder with multithreaded user control</p>
+<p style="margin-bottom: 0in;">&nbsp;</p>
