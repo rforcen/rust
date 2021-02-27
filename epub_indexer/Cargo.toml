@@ -1,0 +1,12 @@
+[package]
+name = "epub_indexer"
+version = "0.1.0"
+authors = ["roberto forcen"]
+edition = "2018"
+
+[dependencies]
+epub = "*"
+html2text = "*"
+glob = "*"
+scoped-pool = "*"
+num_cpus = "*"
