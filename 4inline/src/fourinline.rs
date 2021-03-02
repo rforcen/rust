@@ -1,5 +1,8 @@
 // FourInLine
 
+use rayon::prelude::*;
+use std::cmp::Ordering;
+
 const N : u32 = 7;
 const N_COL : u32 = N;
 const N_ROW : u32 = N-1;
@@ -43,7 +46,7 @@ impl Board {
         for i in 0..N_COL {
             let mut p = i + N_COL/2;
             if p >= N_COL { p -= N_COL }
-            if self.cols_sum[p as usize] < N_ROW { moves.push(p) } 
+            if self.cols_sum[p as usize] < N_ROW-1 { moves.push(p) } 
         }
         moves
     }
@@ -130,11 +133,26 @@ impl Fourinline {
         self.board._move(mv.col, mv.chip)
     }
 
-    pub fn play(&mut self, level : u32) -> i32 {
+    pub fn play(&mut self, level : u32) -> i32 { // single thread
         self.best_move.clear();
         let res = self.alpha_beta(level, level, -i32::MAX, i32::MAX, Chip::Human);
         self._move( self.best_move.clone() );
         res
+    }
+
+    pub fn play_mt(&mut self, level : u32) -> i32 { // multi-threaded version
+        self.best_move.clear();
+        let evals : Vec<(i32, Move)> = self.board.generate_moves().par_iter().map(|mv| {
+            let mut s = self.clone();
+            s.board._move(*mv, Chip::Human);
+            ( s.alpha_beta(level-1, level-1, -i32::MAX, i32::MAX, Chip::Human), s.best_move )
+        } ).collect(); 
+        // set max & best move
+        let best_eval = evals [ evals.iter().enumerate().max_by(|(a,_), (b,_)| a.partial_cmp(b).unwrap_or(Ordering::Equal)).map(|(max_index,_)| max_index).unwrap() ].clone();
+       
+        self._move( best_eval.1.clone() );
+        self.best_move = best_eval.1;
+        best_eval.0
     }
 
     fn alpha_beta(&mut self, level : u32, max_level : u32, alpha : i32, beta : i32, who : Chip ) -> i32 {
@@ -224,14 +242,13 @@ impl Fourinline {
     pub fn is_winner(&self, chip : Chip) -> bool {
         let mut is_winner = false;
 
-        'end: 
         for wcs in &self.win_coords {
     
             let mut is_win = true;
             for c4 in wcs {
                 if self.board.get(c4.0, c4.1) != chip { is_win = false; break }
             }
-            if is_win { is_winner=true;  break 'end }
+            if is_win { is_winner=true;  break }
         }
         is_winner
     }

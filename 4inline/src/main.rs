@@ -7,7 +7,7 @@ mod fourinline;
 use fourinline::*;
 
 fn cli_play() {
-    const LEVEL : u32 = 9;
+    const LEVEL : u32 = 5;
 
     use std::io::{stdin, stdout, Write};
 
