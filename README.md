@@ -24,7 +24,7 @@
 <p><span style="color: #ff0000;">epub indexer: multi threaded epub frequency word count in recursed folders</span></p>
 </li>
    <li>
-<p><span style="color: #ff0000;">4 inline min-max alpha-beta pruning cli interface</span></p>
+<p><span style="color: #ff0000;">4 inline min-max alpha-beta pruning cli interface w/multithread support</span></p>
 </li>
 </ul>
 <p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder with multithreaded user control</p>
