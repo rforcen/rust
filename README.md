@@ -26,6 +26,9 @@
    <li>
 <p><span style="color: #ff0000;">4 inline min-max alpha-beta pruning cli interface w/multithread support</span></p>
 </li>
+   <li>
+<p><span style="color: #ff0000;">radial spectrum from .wav file</span></p>
+</li>
 </ul>
 <p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder with multithreaded user control</p>
 <p style="margin-bottom: 0in;">&nbsp;</p>
