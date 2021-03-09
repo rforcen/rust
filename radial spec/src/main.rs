@@ -45,33 +45,33 @@ impl UI {
             .text_color(color).build().unwrap() };
 
         let (w, h) = (ctx.size().width, ctx.size().height);
-        let w = w.min(h) / 39.;
+        let w = w.min(h) / 47.;
         ctx.fill(Rect::new(0., 0., w*13., w*7.), &Color::WHITE); // cls
         let notes : Vec<&str> = "C,C#,D,D#,E,F,F#,G,G#,A,A#,B".split(',').collect::<Vec<&str>>();        
 
-        for y in 0..=7 {
-            for x in 0..=13 {
-                let (px, py) = (x as f64 *w, y as f64 *w);
-                ctx.stroke( Line::new((0., py), (w*13., py)), &Color::GREEN, 0.6 );  
-                ctx.stroke( Line::new((px, 0.), (px, w*7.)), &Color::GREEN, 0.6 );  
-            }
-        }
-        for n in 0..12 {
+        for n in 0..12 { // labels ( notes, octaves )
             let lo = create_layout(ctx, notes[n], 8., Color::RED);
-            ctx.draw_text(&lo, (n as f64 * w + w/3. + w, w/2.4));
+            ctx.draw_text(&lo, (n as f64 * w + w/6. + w, w/4.));
         }
         for o in -2..=3 {
             let lo = create_layout(ctx, &format!("{:2}",o)[..], 8., Color::RED);
-            ctx.draw_text(&lo, (w/3.7, (o+2) as f64 * w + w + w/2.2));
+            ctx.draw_text(&lo, (w/6., (o+2) as f64 * w + w + w/3.));
         }
-        for o in -2..=3_i32 {
+        for o in -2..=3_i32 { // data in circles
             for n in 0..12 {
                 let x = self.wave.musical_matrix[(o+2) as usize][n] * 100.;
 
                 if x > 5.0 {
-                    let lo = create_layout(ctx, &format!("{:3.0}",x)[..], 7., if x==100.0 {Color::RED } else {Color::BLUE});
-                    ctx.draw_text(&lo, (n as f64 * w + w/5.4 + w, (o+2) as f64 * w + w + w/2.2));
+                    let (cx, cy, rad) = ( (n+1) as f64 * w + w/2., (o+2+1) as f64 * w + w/2., w * (x as f64) / 270.);
+                    ctx.fill(Ellipse::new((cx,cy), (rad, rad), 0.), if x==100.0 {&Color::RED } else {&Color::BLUE});
                 }
+            }
+        }
+        for y in 0..=7 { // grid
+            for x in 0..=13 {
+                let (px, py) = (x as f64 *w, y as f64 *w);
+                ctx.stroke( Line::new((0., py), (w*13., py)), &Color::GREEN, 0.3 );  
+                ctx.stroke( Line::new((px, 0.), (px, w*7.)), &Color::GREEN, 0.3 );  
             }
         }
     }
