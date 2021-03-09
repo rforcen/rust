@@ -6,7 +6,12 @@ extern crate rgsl;
 use rgsl::types::interpolation::{Spline, InterpType};
 use rgsl::fft::radix2::forward;
 
+
+#[path="music_freq.rs"] mod music_freq;
+
 // plot using : cargo build; target/debug/radialspec | gnuplot -p > fft.png; open fft.png
+
+const OCT_RANGE: std::ops::RangeInclusive<i8> = -3..=3;
 
 pub struct Signal {
     samples         : Vec<f32>,
@@ -15,7 +20,8 @@ pub struct Signal {
     n_fft           : usize,
     err_msg         : String,
     top_freq        : f32,
-	smooth_spec		: (Vec<f32>,Vec<f32>)
+	smooth_spec		: (Vec<f32>,Vec<f32>),
+    pub musical_matrix  : Vec<Vec<f32>>,
 }
 
 impl Signal {
@@ -23,7 +29,8 @@ impl Signal {
     pub fn new() -> Self { Self { 
 		samples:vec![], channels:0, sample_rate:0, 
 		n_fft:0, top_freq:0., err_msg:String::default(), 
-		smooth_spec:(vec![], vec![])} }
+		smooth_spec:(vec![], vec![]),
+        musical_matrix: vec![]} }
 
     pub fn set_top_freq(&mut self, top_freq:f32) { self.top_freq = top_freq }
 
@@ -176,6 +183,26 @@ impl Signal {
         y_fft.iter().fold(-f32::MAX, |max, x| max.max(*x))
     }
 
+    fn musical_matrix(&mut self, fft : &Vec<f32>) { // create from fft
+
+        self.musical_matrix = vec![vec![0_f32; 12]; OCT_RANGE.len()]; // -3..=3 x 12 notes
+
+        let mut max=0_f32;
+        fft.iter()
+            .enumerate()
+            .for_each(|(i,x)| {
+                let (oct, note) = music_freq::freq2oct_note(self.index_2_freq(i) as f64);
+                if OCT_RANGE.contains(&oct) {
+                    self.musical_matrix[(oct-OCT_RANGE.start()) as usize][note as usize] += x;
+                    max = max.max(self.musical_matrix[(oct-OCT_RANGE.start()) as usize][note as usize]);
+                }
+            });
+        
+        // scale
+        self.musical_matrix.iter_mut().for_each(|ov| ov.iter_mut().for_each(|x| *x= *x / max ) );
+        // self.musical_matrix.iter().for_each(|m|  println!("{:.2?}", m));
+    }
+    
     pub fn smooth_spec(&mut self) -> (Vec<f32>,Vec<f32>) {
 		self.smooth_spec.0.clear();
 		self.smooth_spec.1.clear();
@@ -193,7 +220,8 @@ impl Signal {
         fft_sum.iter_mut().for_each(|x| *x /= max_fft); // scale to max_fft
         
         self.remove_mic_noise(&mut fft_sum);
-
+        self.musical_matrix(&fft_sum);
+        
         // generate interpolation polynomial from peaks
         let mut acc = rgsl::types::interpolation::InterpAccel::new();
         

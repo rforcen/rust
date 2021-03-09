@@ -17,8 +17,9 @@ use druid::{
 
 #[derive(Clone, Default, Data, Lens)]
 struct Wave {
-    #[data(ignore)] spectrum      : (Vec<f32>,Vec<f32>),
-    spec   : String,
+#[data(ignore)] spectrum       : (Vec<f32>,Vec<f32>),
+#[data(ignore)] musical_matrix : Vec<Vec<f32>>,
+                spec           : String,
 }
 
 // UI
@@ -29,9 +30,53 @@ struct UI {
 
 impl UI {
     fn new() -> Self {
-       Self { wave : Wave{ spectrum:(vec![],vec![]), spec:String::default()} }
+       Self { wave : Wave{ spectrum:(vec![],vec![]), musical_matrix: vec![], spec:String::default()} }
     }
+
     fn draw(&self, ctx: &mut PaintCtx ) {
+        self.draw_spectrum(ctx);
+        self.draw_musical_matrix(ctx);
+    }
+
+    fn draw_musical_matrix(&self,  ctx: &mut PaintCtx ) {
+        let create_layout = |ctx: &mut PaintCtx, val : &str, fs, color| { ctx.text()
+            .new_text_layout(format!("{}",val))
+            .font(FontFamily::MONOSPACE, fs)
+            .text_color(color).build().unwrap() };
+
+        let (w, h) = (ctx.size().width, ctx.size().height);
+        let w = w.min(h) / 39.;
+        ctx.fill(Rect::new(0., 0., w*13., w*7.), &Color::WHITE); // cls
+        let notes : Vec<&str> = "C,C#,D,D#,E,F,F#,G,G#,A,A#,B".split(',').collect::<Vec<&str>>();        
+
+        for y in 0..=7 {
+            for x in 0..=13 {
+                let (px, py) = (x as f64 *w, y as f64 *w);
+                ctx.stroke( Line::new((0., py), (w*13., py)), &Color::GREEN, 0.6 );  
+                ctx.stroke( Line::new((px, 0.), (px, w*7.)), &Color::GREEN, 0.6 );  
+            }
+        }
+        for n in 0..12 {
+            let lo = create_layout(ctx, notes[n], 8., Color::RED);
+            ctx.draw_text(&lo, (n as f64 * w + w/3. + w, w/2.4));
+        }
+        for o in -2..=3 {
+            let lo = create_layout(ctx, &format!("{:2}",o)[..], 8., Color::RED);
+            ctx.draw_text(&lo, (w/3.7, (o+2) as f64 * w + w + w/2.2));
+        }
+        for o in -2..=3_i32 {
+            for n in 0..12 {
+                let x = self.wave.musical_matrix[(o+2) as usize][n] * 100.;
+
+                if x > 5.0 {
+                    let lo = create_layout(ctx, &format!("{:3.0}",x)[..], 7., if x==100.0 {Color::RED } else {Color::BLUE});
+                    ctx.draw_text(&lo, (n as f64 * w + w/5.4 + w, (o+2) as f64 * w + w + w/2.2));
+                }
+            }
+        }
+    }
+
+    fn draw_spectrum(&self, ctx: &mut PaintCtx ) {
   
         let create_layout = |ctx: &mut PaintCtx, val : f32, fs, color| { ctx.text()
             .new_text_layout(format!("{:.0}", val))
@@ -41,7 +86,8 @@ impl UI {
         let (w, h) = (ctx.size().width, ctx.size().height);
         let (x0, y0) = ( w/2., h/2.);
         let r = if w > h  {h/2.} else {w/2.};
-        let ( r0, r1, r_txt, r_gr, ri, txt_size ) = (0.91, 0.93, 0.88, 0.89, 0.01, 7.);
+        let mf = 0.9;
+        let ( r0, r1, r_txt, r_gr, ri, txt_size ) = (0.91*mf, 0.93*mf, 0.88*mf, 0.89*mf, 0.01, 7.);
           
         ctx.fill(Rect::new(0., 0., w, h), &Color::WHITE); // cls
 
@@ -80,7 +126,7 @@ impl UI {
             .new_text_layout(format!("{}", self.wave.spec.clone() + &format!("\nmax freq.: {:.1} hz", max_freq)[..]))
             .font(FontFamily::MONOSPACE, 8.0)
             .text_color(Color::BLUE).build().unwrap();
-        ctx.draw_text(&lout, (10., 10.) );
+        ctx.draw_text(&lout, (10., h-60.) );
 
    
         let to_coord = |px, py| { // x, y coord in spectrum to plt coord
@@ -121,7 +167,6 @@ impl Widget<UI> for Wave {
              ctx.set_focus(ctx.widget_id());
              ctx.request_focus() 		// support key stroke               
          }
- 
           _ => ()
       }
     }
@@ -149,7 +194,10 @@ fn ui_builder() -> impl Widget<UI> {
         signal.set_top_freq(600.);
         signal.read_wav(&file_name.to_string());
     
-        Flex::column().with_child(Wave{spectrum:signal.smooth_spec(), spec: file_name.to_string() + "\n" + &signal.spec_string()[..]})
+        Flex::column().with_child( Wave { 
+                spectrum        : signal.smooth_spec(), 
+                musical_matrix  : signal.musical_matrix.clone(), 
+                spec            : signal.spec_string() + "\n" + file_name.as_str()})
     } else {
         Flex::column()
     }
