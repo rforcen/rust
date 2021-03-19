@@ -16,6 +16,8 @@
 </li>
 <li>
 <p><span style="color: #ff0000;">symmetric icons</span></p>
+</li><li>
+<p><span style="color: #ff0000;">sodoku generator & solver</span></p>
 </li>
   <li>
 <p><span style="color: #ff0000;">vsl: algebraic sound generator</span></p>
