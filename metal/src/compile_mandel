@@ -1,0 +1,6 @@
+#!/usr/local/bin/bash
+
+rm -f  *air
+xcrun -sdk macosx metal -c mandelbrot.metal
+xcrun -sdk macosx metallib *air -o mandelbrot.metallib
+rm -f *air
