@@ -3,52 +3,52 @@
 // complex arithmetics: +,-, neg direct vec2 support
 vec2 mul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);  }
 vec2 div(vec2 a, vec2 b) {
-float _div = (b.x * b.x) + (b.y * b.y);
-return vec2( ((a.x * b.x) + (a.y * b.y)) / _div, ((a.y * b.x) - (a.x * b.y)) / _div );
+	float _div = (b.x * b.x) + (b.y * b.y);
+	return vec2( ((a.x * b.x) + (a.y * b.y)) / _div, ((a.y * b.x) - (a.x * b.y)) / _div );
 }
 
 float cabs(vec2 a)     { return dot(a,a); } 
 float sqmag(vec2 a)    { return dot(a,a); } 
 float arg(vec2 a)      { return atan(a.y, a.x); }
 						
-vec2 pow(vec2 a, float n) { // (𝑎+𝑖𝑏)𝑁=𝑟𝑁(cos(𝑁𝜃)+𝑖sin(𝑁𝜃))
-float rn = pow(length(a), n), na = n * arg(a);
-return vec2(rn * cos(na), rn * sin(na));
+vec2 cpow(vec2 a, float n) { // (𝑎+𝑖𝑏)𝑁=𝑟𝑁(cos(𝑁𝜃)+𝑖sin(𝑁𝜃))
+	float rn = pow(length(a), n), na = n * arg(a);
+	return vec2(rn * cos(na), rn * sin(na));
 }
 
-vec2 pow(vec2 a, vec2 z) { 
-float c = z.x, d = z.y;
-float m = pow(sqmag(a), c / 2) * exp(-d * arg(a));
-float _re = m * cos(c * arg(a) + 1 / 2 * d * log(sqmag(a))),
-		_im = m * sin(c * arg(a) + 1 / 2 * d * log(sqmag(a)));
-return vec2(_re, _im);
+vec2 cpow(vec2 a, vec2 z) { 
+	float c = z.x, d = z.y;
+	float m = pow(sqmag(a), c / 2) * exp(-d * arg(a));
+	float _re = m * cos(c * arg(a) + 1 / 2 * d * log(sqmag(a))),
+			_im = m * sin(c * arg(a) + 1 / 2 * d * log(sqmag(a)));
+	return vec2(_re, _im);
 }
 
-vec2 sqrt(vec2 z) {
-float a = length(z);
-return vec2(sqrt((a + z.x) / 2), sign(z.y) * sqrt((a - z.x) / 2));
+vec2 csqrt(vec2 z) {
+	float a = length(z);
+	return vec2(sqrt((a + z.x) / 2), sign(z.y) * sqrt((a - z.x) / 2));
 }
 
-vec2 log(vec2 z)  { return vec2(log(length(z)), arg(z)); }
+vec2 clog(vec2 z)  { return vec2(log(length(z)), arg(z)); }
 
-vec2 cosh(vec2 z) { return vec2(cosh(z.x) * cos(z.y), sinh(z.x) * sin(z.y));  }
-vec2 sinh(vec2 z) { return vec2(sinh(z.x) * cos(z.y), cosh(z.x) * sin(z.y));  }
-vec2 sin(vec2 z)  { return vec2(sin(z.x) * cosh(z.y), cos(z.x) * sinh(z.y));  }
-vec2 cos(vec2 z)  { return vec2(cos(z.x) * cosh(z.y), -sin(z.x) * sinh(z.y)); }
-vec2 tan(vec2 z)  { return div(sin(z) , cos(z)); }
+vec2 ccosh(vec2 z) { return vec2(cosh(z.x) * cos(z.y), sinh(z.x) * sin(z.y));  }
+vec2 csinh(vec2 z) { return vec2(sinh(z.x) * cos(z.y), cosh(z.x) * sin(z.y));  }
+vec2 csin(vec2 z)  { return vec2(sin(z.x) * cosh(z.y), cos(z.x) * sinh(z.y));  }
+vec2 ccos(vec2 z)  { return vec2(cos(z.x) * cosh(z.y), -sin(z.x) * sinh(z.y)); }
+vec2 ctan(vec2 z)  { return div(sin(z) , cos(z)); }
 
-vec2 asinh(vec2 z) {
-vec2 t = vec2((z.x - z.y) * (z.x + z.y) + 1, 2 * z.x * z.y);
-return log(sqrt(t)+z);
+vec2 casinh(vec2 z) {
+	vec2 t = vec2((z.x - z.y) * (z.x + z.y) + 1, 2 * z.x * z.y);
+	return	 log(sqrt(t)+z);
 }     
 
-vec2 asin(vec2 z) {
-vec2 t = asinh( vec2(-z.y, z.x) );
-return vec2(t.y, -t.x);
+vec2 casin(vec2 z) {
+	vec2 t = asinh( vec2(-z.y, z.x) );
+	return vec2(t.y, -t.x);
 }
-vec2 acos(vec2 z) {
-vec2 t = asin(z);
-return vec2(1.7514 - t.x, -t.y);
+vec2 cacos(vec2 z) {
+	vec2 t = asin(z);
+	return vec2(1.7514 - t.x, -t.y);
 }
 
 ////////////////////////      
@@ -117,9 +117,10 @@ uint dc_get_color(int x, int y, int w, int h) {
 /////////////////////// the domain coloring func
 
 vec2 domain_color_func(vec2 z) { // f(z)
-	vec2 z1 = div(pow(z,4)+1., pow(z,3)-1.);
+	return z;	
+	vec2 z1 = div(cpow(z,4)+1., cpow(z,3)-1.);
 	// vec2 z1 = mul(pow(z,4), cos(z)) + pow(z,4);
-	z1 +=  mul( z/5 , sin(z) ) ;
+	z1 +=  mul( z/5 , csin(z) ) ;
 	return z1;
 }
 
