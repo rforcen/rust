@@ -35,6 +35,9 @@
 <p><span style="color: #ff0000;">apple metal wrapper w/voronoi, mandelbrot & domain coloring cases</span></p></li>
   <li>
 <p><span style="color: #ff0000;">glsl domain coloring & voronoi</span></p>
+</li> 
+  <li>
+<p><span style="color: #ff0000;">spherical harmonics</span></p>
 </li>
 </ul>
 <p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder with multithreaded user control</p>
