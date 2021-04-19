@@ -45,5 +45,5 @@
 <p><span style="color: #ff0000;">algebraic surfaces</span></p>
 </li>
 </ul>
-<p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder with multithreaded user control</p>
+<p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder, kiss3d with multithreaded user control</p>
 <p style="margin-bottom: 0in;">&nbsp;</p>
