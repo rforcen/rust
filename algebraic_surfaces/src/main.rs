@@ -43,28 +43,49 @@ pub fn gen_nodes(
         }
     }
 
-    fn trig_strip3(n: usize) -> Vec<u16> {
+    fn trig_strip3(n: usize) -> Vec<u32> {
         // quad -> trig
-        let size = n * (n - 2);
+        let size = n * n;
         let ix_vect = [0, 1, n + 1, 0, n + 1, n]; // trig order
 
         (0..6 * size)
-            .map(|index| (ix_vect[index % 6] + (index / 6)) as u16)
-            .collect::<Vec<u16>>()
+            .map(|index| (ix_vect[index % 6] + (index / 6)) as u32)
+            .collect::<Vec<u32>>()
     }
 
     let mut nodes_by_surface = || -> Vec<SceneNode> {
         let indices = trig_strip3(resol)
             .chunks(3)
-            .map(|ix| Point3::new(ix[0], ix[1], ix[2]))
+            .map(|ix| Point3::new(ix[0] as u16, ix[1] as u16, ix[2] as u16))
+            .collect::<Vec<Point3<u16>>>();
+
+        let chunk_size = if 1 << 16 < resol * resol {
+            1 << 16
+        } else {
+            resol * resol
+        }; // 2^16, u16::MAX+1
+
+        let nodes = (0..resol * resol)
+            .step_by(chunk_size) // size/chunk:size + ramiander
+            .map(|i| {
+                let (start, end) = (i, (i + chunk_size)); // selected range
+                let mesh = Mesh::new(
+                    mesh.0[start..end].to_vec(),
+                    indices[start * 2..end * 2].to_vec(), // 2 trigs per quad
+                    Some(mesh.1[start..end].to_vec()),
+                    None,
+                    true,
+                );
+                let mut node = window.add_mesh(
+                    Rc::new(RefCell::new(mesh)),
+                    Vector3::new(scale, scale, scale),
+                );
+                node.enable_backface_culling(false);
+                node
+            })
             .collect();
-        let mesh = Mesh::new(mesh.0.clone(), indices, Some(mesh.1.clone()), None, false);
-        let mut node = window.add_mesh(
-            Rc::new(RefCell::new(mesh)),
-            Vector3::new(scale, scale, scale),
-        );
-        node.enable_backface_culling(false);
-        vec![node]
+
+        nodes
     };
     nodes_by_surface()
 }
@@ -75,7 +96,7 @@ fn del_nodes(nodes: &mut Vec<SceneNode>, window: &mut Window) {
 }
 
 fn main() {
-    let resol = 100;
+    let resol = 1 << 8; // MUST be a power of 2
     let mut scale = 0.7;
 
     let mut ns = 4; // initial surface
@@ -84,13 +105,11 @@ fn main() {
     let mut window = Window::new(&*format!("{}", SURF_NAMES[ns]));
 
     let mut nodes = vec![];
-    // window.set_light(Light::StickToCamera);
 
     while window.render() {
         if update {
             del_nodes(&mut nodes, &mut window);
-            let mesh = generate_alg_suf(ns, resol);
-            nodes = gen_nodes(resol, &mesh, &mut window, scale);
+            nodes = gen_nodes(resol, &generate_alg_suf(ns, resol), &mut window, scale);
             window.set_title(&*format!("{}", SURF_NAMES[ns]));
             update = false;
         }

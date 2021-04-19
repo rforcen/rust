@@ -55,11 +55,11 @@ pub trait ParametricSurface {
         let (from_u, dif_u) = (range_u.0, (range_u.1 - range_u.0).abs());
         let (from_v, dif_v) = (range_v.0, (range_v.1 - range_v.0).abs());
 
+        let scale_u = |val: f32| val * dif_u + from_u;
+        let scale_v = |val: f32| val * dif_v + from_v;
+
         let mut add_text_vertex = |u: f32, v: f32| {
             // eval & add vertex, texture
-            let scale_u = |val: f32| val * dif_u + from_u;
-            let scale_v = |val: f32| val * dif_v + from_v;
-
             let p = self.eval(scale_u(u), scale_v(v));
 
             min_p = Point3::new(min_p.x.min(p.x), min_p.y.min(p.y), min_p.z.min(p.z));
@@ -71,7 +71,7 @@ pub trait ParametricSurface {
 
         // generate vertex, textures
         let delta = 1. / resol as f32;
-
+       
         for i in 0..resol {
             for j in 0..resol {
                 add_text_vertex(i as f32 * delta, j as f32 * delta);
