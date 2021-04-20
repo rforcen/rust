@@ -1,4 +1,5 @@
-// Parametric Surface
+// Parametric Surface in ST mode
+
 use nalgebra::{Point2, Point3, Vector3};
 use rayon::prelude::*;
 use std::f32::consts::PI;
@@ -90,7 +91,6 @@ pub trait ParametricSurface {
 
         // normals
         let mut normals = vec![];
-        /*
         for (i0, coord) in coords.iter().enumerate() {
             fn calc_normal(v0: &Point3<f32>, v1: Point3<f32>, v2: Point3<f32>) -> Vector3<f32> {
                 (v2 - v0).cross(&(v1 - v0)) //.normalize()
@@ -107,7 +107,6 @@ pub trait ParametricSurface {
             };
             normals.push(calc_normal(coord, coords[i1], coords[i2]))
         }
-        */
 
         (coords, normals, textures)
     }

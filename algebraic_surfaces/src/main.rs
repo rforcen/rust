@@ -1,4 +1,8 @@
 use algebraic_surfaces::*;
+mod as_funcs;
+use as_funcs::calc_coords_mt;
+mod aux_funcs;
+mod evals;
 
 extern crate kiss3d;
 extern crate nalgebra as na;
@@ -12,6 +16,8 @@ use kiss3d::window::Window;
 use na::{Point3, Vector3};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use std::time::Instant;
 
 pub fn gen_nodes(
     resol: usize,
@@ -53,41 +59,36 @@ pub fn gen_nodes(
             .collect::<Vec<u32>>()
     }
 
-    let mut nodes_by_surface = || -> Vec<SceneNode> {
-        let indices = trig_strip3(resol)
-            .chunks(3)
-            .map(|ix| Point3::new(ix[0] as u16, ix[1] as u16, ix[2] as u16))
-            .collect::<Vec<Point3<u16>>>();
+    let indices = trig_strip3(resol)
+        .chunks(3)
+        .map(|ix| Point3::new(ix[0] as u16, ix[1] as u16, ix[2] as u16))
+        .collect::<Vec<Point3<u16>>>();
 
-        let chunk_size = if 1 << 16 < resol * resol {
-            1 << 16
-        } else {
-            resol * resol
-        }; // 2^16, u16::MAX+1
+    let chunk_size = if 1 << 16 < resol * resol {
+        1 << 16
+    } else {
+        resol * resol
+    }; // 2^16, u16::MAX+1
 
-        let nodes = (0..resol * resol)
-            .step_by(chunk_size) // size/chunk:size + ramiander
-            .map(|i| {
-                let (start, end) = (i, (i + chunk_size)); // selected range
-                let mesh = Mesh::new(
-                    mesh.0[start..end].to_vec(),
-                    indices[start * 2..end * 2].to_vec(), // 2 trigs per quad
-                    Some(mesh.1[start..end].to_vec()),
-                    None,
-                    true,
-                );
-                let mut node = window.add_mesh(
-                    Rc::new(RefCell::new(mesh)),
-                    Vector3::new(scale, scale, scale),
-                );
-                node.enable_backface_culling(false);
-                node
-            })
-            .collect();
-
-        nodes
-    };
-    nodes_by_surface()
+    (0..resol * resol)
+        .step_by(chunk_size) // size/chunk:size + ramiander
+        .map(|i| {
+            let (start, end) = (i, (i + chunk_size)); // selected range
+            let mesh = Mesh::new(
+                mesh.0[start..end].to_vec(),
+                indices[start * 2..end * 2].to_vec(), // 2 trigs per quad
+                None,                                 // Some(mesh.1[start..end].to_vec()),
+                None,
+                true,
+            );
+            let mut node = window.add_mesh(
+                Rc::new(RefCell::new(mesh)),
+                Vector3::new(scale, scale, scale),
+            );
+            node.enable_backface_culling(false);
+            node
+        })
+        .collect()
 }
 
 fn del_nodes(nodes: &mut Vec<SceneNode>, window: &mut Window) {
@@ -100,17 +101,38 @@ fn main() {
     let mut scale = 0.7;
 
     let mut ns = 4; // initial surface
-    let mut update = true;
+    let (mut update, mut refresh) = (true, true);
 
     let mut window = Window::new(&*format!("{}", SURF_NAMES[ns]));
 
     let mut nodes = vec![];
+    let mut mesh: algebraic_surfaces::Mesh = (vec![], vec![], vec![]);
 
     while window.render() {
         if update {
+            let t = Instant::now();
+            if refresh {
+                mesh = if (22..=26).contains(&ns) {
+                    // Tanaka
+                    generate_alg_suf(ns, resol) // ST mode
+                } else {
+                    calc_coords_mt(ns, resol) // MT rayon mode
+                };
+                refresh = false
+            }
+            //
+            println!(
+                "lap for {} {}x{}: {:?}",
+                SURF_NAMES[ns],
+                resol,
+                resol,
+                Instant::now() - t
+            );
+
             del_nodes(&mut nodes, &mut window);
-            nodes = gen_nodes(resol, &generate_alg_suf(ns, resol), &mut window, scale);
+            nodes = gen_nodes(resol, &mesh, &mut window, scale);
             window.set_title(&*format!("{}", SURF_NAMES[ns]));
+
             update = false;
         }
 
@@ -124,6 +146,7 @@ fn main() {
                 WindowEvent::MouseButton(button, Action::Press, _) => {
                     if button == MouseButton::Button3 {
                         update = true;
+                        refresh = true;
                         ns = if ns == N_SURFACES - 1 { 0 } else { ns + 1 }
                     }
                 }
@@ -131,6 +154,7 @@ fn main() {
                     ns = match button {
                         Key::Down => {
                             update = true;
+                            refresh = true;
                             if ns == 0 {
                                 N_SURFACES - 1
                             } else {
@@ -139,6 +163,7 @@ fn main() {
                         }
                         Key::Up | Key::Space => {
                             update = true;
+                            refresh = true;
                             if ns == N_SURFACES - 1 {
                                 0
                             } else {
