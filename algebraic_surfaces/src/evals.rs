@@ -257,3 +257,53 @@ pub fn Kuen_eval(u: f32, v: f32) -> Point3<f32> {
         v - (2. * sinh(v) * cosh(v)) / (cosh(v) * cosh(v) + u * u),
     )
 }
+
+// Tanakas 0..3
+pub fn Tanaka0_eval(s: f32, t: f32) -> Point3<f32> {
+    fn f(v: f32) -> f32 {
+        sinf(2. * sinf(sinf(sinf(v))))
+    }
+    let (a, b1, b2, c, _d, w, h) = (0., 4., 3., 4., 5., 7., 4.);
+    Point3::new(
+        (a - cosf(t) + w * sinf(b1 * s)) * cosf(b2 * s),
+        (a - cosf(t) + w * sinf(b1 * s)) * f(b2 * s),
+        h * (w * sinf(b1 * s) + f(t)) + c,
+    )
+}
+pub fn Tanaka1_eval(s: f32, t: f32) -> Point3<f32> {
+    fn f(v: f32) -> f32 {
+        sinf(2. * sinf(sinf(sinf(v))))
+    }
+    let (a, b1, b2, c, _d, w, h) = (0., 4., 3., 0., 5., 7., 4.);
+    Point3::new(
+        (a - cosf(t) + w * sinf(b1 * s)) * cosf(b2 * s),
+        (a - cosf(t) + w * sinf(b1 * s)) * f(b2 * s),
+        h * (w * sinf(b1 * s) + f(t)) + c,
+    )
+}
+pub fn Tanaka2_eval(s: f32, t: f32) -> Point3<f32> {
+    fn f(v: f32) -> f32 {
+        sinf(2. * sinf(sinf(sinf(v))))
+    }
+    let (a, b1, b2, c, _d, w, h) = (0., 3., 4., 8., 5., 5., 2.);
+    Point3::new(
+        (a - cosf(t) + w * sinf(b1 * s)) * cosf(b2 * s),
+        (a - cosf(t) + w * sinf(b1 * s)) * f(b2 * s),
+        h * (w * sinf(b1 * s) + f(t)) + c,
+    )
+}
+pub fn Tanaka3_eval(s: f32, t: f32) -> Point3<f32> {
+    fn f(v: f32) -> f32 {
+        sinf(2. * sinf(sinf(sinf(v))))
+    }
+    let (a, b1, b2, c, _d, w, h) = (14., 3., 1., 8., 5., 5., 2.);
+    Point3::new(
+        (a - cosf(t) + w * sinf(b1 * s)) * cosf(b2 * s),
+        (a - cosf(t) + w * sinf(b1 * s)) * f(b2 * s),
+        h * (w * sinf(b1 * s) + f(t)) + c,
+    )
+}
+
+pub fn Dummy_eval(_s: f32, _t: f32) -> Point3<f32> {
+    Point3::new(0., 0., 0.)
+}

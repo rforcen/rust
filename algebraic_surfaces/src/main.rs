@@ -2,13 +2,14 @@ use algebraic_surfaces::*;
 mod as_funcs;
 use as_funcs::calc_coords_mt;
 mod aux_funcs;
+use aux_funcs::*;
 mod evals;
 
 extern crate kiss3d;
 extern crate nalgebra as na;
 
 use kiss3d::event::{Action, Key, MouseButton, WindowEvent};
-use kiss3d::light::Light;
+// use kiss3d::light::Light;
 use kiss3d::resource::Mesh;
 use kiss3d::scene::SceneNode;
 use kiss3d::window::Window;
@@ -25,59 +26,21 @@ pub fn gen_nodes(
     window: &mut Window,
     scale: f32,
 ) -> Vec<SceneNode> {
-    pub fn triangularize(n_sides: usize) -> Vec<Point3<u16>> {
-        match n_sides {
-            3 => vec![Point3::new(0, 1, 2)],
-            4 => vec![Point3::new(0, 1, 2), Point3::new(0, 2, 3)],
-            5 => vec![
-                Point3::new(0, 1, 2),
-                Point3::new(0, 2, 3),
-                Point3::new(0, 3, 4),
-            ],
-            6 => vec![
-                Point3::new(0, 1, 2),
-                Point3::new(0, 2, 3),
-                Point3::new(0, 3, 4),
-                Point3::new(0, 4, 5),
-            ],
-            _ => {
-                // generate n_sides polygon set of trig index coords
-                (0..(n_sides - 2))
-                    .map(|i| Point3::new(0, i as u16 + 1, i as u16 + 2))
-                    .collect::<Vec<Point3<u16>>>()
-            }
-        }
-    }
-
-    fn trig_strip3(n: usize) -> Vec<u32> {
-        // quad -> trig
-        let size = n * n;
-        let ix_vect = [0, 1, n + 1, 0, n + 1, n]; // trig order
-
-        (0..6 * size)
-            .map(|index| (ix_vect[index % 6] + (index / 6)) as u32)
-            .collect::<Vec<u32>>()
-    }
-
-    let indices = trig_strip3(resol)
-        .chunks(3)
-        .map(|ix| Point3::new(ix[0] as u16, ix[1] as u16, ix[2] as u16))
-        .collect::<Vec<Point3<u16>>>();
-
     let chunk_size = if 1 << 16 < resol * resol {
         1 << 16
     } else {
         resol * resol
     }; // 2^16, u16::MAX+1
 
+   
     (0..resol * resol)
         .step_by(chunk_size) // size/chunk:size + ramiander
         .map(|i| {
             let (start, end) = (i, (i + chunk_size)); // selected range
             let mesh = Mesh::new(
                 mesh.0[start..end].to_vec(),
-                indices[start * 2..end * 2].to_vec(), // 2 trigs per quad
-                None,                                 // Some(mesh.1[start..end].to_vec()),
+                mesh.3[start * 2..end * 2].to_vec(), // 2 trigs per quad
+                Some(mesh.1[start..end].to_vec()),
                 None,
                 true,
             );
@@ -106,18 +69,13 @@ fn main() {
     let mut window = Window::new(&*format!("{}", SURF_NAMES[ns]));
 
     let mut nodes = vec![];
-    let mut mesh: algebraic_surfaces::Mesh = (vec![], vec![], vec![]);
+    let mut mesh: algebraic_surfaces::Mesh = (vec![], vec![], vec![], vec![]);
 
     while window.render() {
         if update {
             let t = Instant::now();
             if refresh {
-                mesh = if (22..=26).contains(&ns) {
-                    // Tanaka
-                    generate_alg_suf(ns, resol) // ST mode
-                } else {
-                    calc_coords_mt(ns, resol) // MT rayon mode
-                };
+                mesh = calc_coords_mt(ns, resol); // MT rayon mode
                 refresh = false
             }
             //

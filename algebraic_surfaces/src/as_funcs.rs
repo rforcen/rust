@@ -1,74 +1,14 @@
 // Funcs for Parametric Surface in MT mode
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 use nalgebra::{Point2, Point3, Vector3};
 use rayon::prelude::*;
 use std::f32::consts::PI;
 
-use crate::aux_funcs::*;
 use crate::evals::*;
+use algebraic_surfaces::*;
 
 const TWO_PI: f32 = PI * 2.;
-
-pub type Mesh = (Vec<Point3<f32>>, Vec<Vector3<f32>>, Vec<Point2<f32>>);
-
-// Tanaka
-
-pub struct Tanaka {
-    a: f32,
-    b1: f32,
-    b2: f32,
-    c: f32,
-    d: f32,
-    w: f32,
-    h: f32,
-}
-
-impl Tanaka {
-    pub fn new(param: usize) -> Self {
-        let mut tanaka = Self {
-            a: 0.,  // center hole size of a torus
-            b1: 4., // number of cross
-            b2: 3., // number of cross
-            c: 4.,  // distance from the center of rotation
-            d: 5.,  // number of torus
-            w: 7.,  // gap width
-            h: 4.,  // height
-        };
-        tanaka.set_param(param);
-        tanaka
-    }
-
-    fn set_param(&mut self, param: usize) {
-        const PARAM_SET: [[u8; 7]; 4] = [
-            [0, 4, 3, 4, 5, 7, 4],
-            [0, 4, 3, 0, 5, 7, 4],
-            [0, 3, 4, 8, 5, 5, 2],
-            [14, 3, 1, 8, 5, 5, 2],
-        ];
-        let param = param % 4;
-        self.a = PARAM_SET[param][0] as f32;
-        self.b1 = PARAM_SET[param][1] as f32;
-        self.b2 = PARAM_SET[param][2] as f32;
-        self.c = PARAM_SET[param][3] as f32;
-        self.d = PARAM_SET[param][4] as f32;
-        self.w = PARAM_SET[param][5] as f32;
-    }
-
-    fn get_ntorus(&self) -> f32 {
-        self.d
-    } // number of torus
-    fn f(v: f32) -> f32 {
-        sinf(2. * sinf(sinf(sinf(v))))
-    }
-
-    pub fn eval(&self, s: f32, t: f32) -> Point3<f32> {
-        Point3::new(
-            (self.a - cosf(t) + self.w * sinf(self.b1 * s)) * cosf(self.b2 * s),
-            (self.a - cosf(t) + self.w * sinf(self.b1 * s)) * Self::f(self.b2 * s),
-            self.h * (self.w * sinf(self.b1 * s) + Self::f(t)) + self.c,
-        )
-    }
-}
 
 pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
     let ranges = [
@@ -96,6 +36,9 @@ pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
         [(0., TWO_PI), (0., TWO_PI)],
         [(-4., 4.), (-3.75, 3.75)],
         [(0., TWO_PI), (0., TWO_PI)],
+        [(0., TWO_PI), (0., TWO_PI)],
+        [(0., TWO_PI), (0., TWO_PI)],
+        [(0., TWO_PI), (0., TWO_PI)],
     ];
 
     let func = match n_func {
@@ -122,8 +65,11 @@ pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
         20 => ButterFly_eval,
         21 => Rose_eval,
         22 => Kuen_eval,
-        //23 | 24 | 25 | 26 => Tanaka
-        _ => Cap_eval,
+        23 => Tanaka0_eval,
+        24 => Tanaka1_eval,
+        25 => Tanaka2_eval,
+        26 => Tanaka3_eval,
+        _ => Dummy_eval,
     };
     let range_u = ranges[n_func][0];
     let range_v = ranges[n_func][1];
@@ -134,7 +80,7 @@ pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
     let scale_u = |val: f32| val * dif_u + from_u;
     let scale_v = |val: f32| val * dif_v + from_v;
 
-    // generate vertex, textures
+    // generate coords
     let delta = 1. / resol as f32;
 
     let mut coords = (0..resol * resol)
@@ -169,5 +115,61 @@ pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
     if diff != 0. {
         coords.par_iter_mut().for_each(|p| *p /= diff)
     }
-    (coords, vec![], vec![])
+
+    // normals
+    let normals = coords
+        .par_iter()
+        .enumerate()
+        .map(|(i, p)| {
+            fn calc_normal(v0: &Point3<f32>, v1: Point3<f32>, v2: Point3<f32>) -> Vector3<f32> {
+                (v2 - v0).cross(&(v1 - v0)) //.normalize()
+            }
+            let i1 = if i + 1 >= coords.len() { i - 1 } else { i + 1 };
+            let i2 = if i + resol >= coords.len() {
+                i - resol
+            } else {
+                i + resol
+            };
+            calc_normal(p, coords[i1], coords[i2])
+        })
+        .collect();
+
+    // u,v 's
+    let uvs = (0..resol * resol)
+        .into_par_iter()
+        .map(|i| {
+            Point2::new(
+                scale_u((i / resol) as f32 * delta),
+                scale_v((i % resol) as f32 * delta),
+            )
+        })
+        .collect::<Vec<Point2<f32>>>();
+
+    // indices -> quad 2 2 x trigs
+    let indices = (0..2 * resol * resol)
+        .into_par_iter()
+        .map(|index| {
+            let even = index & 1 == 0;
+            let index = index / 2;
+            if index % resol == resol - 1 || index / resol == resol - 1 {
+                Point3::new(0, 0, 0)
+            } else {
+                if even {
+                    Point3::new(
+                        (index + 0) as u16,
+                        (index + 1) as u16,
+                        (index + resol + 1) as u16,
+                    )
+                } else {
+                    Point3::new(
+                        (index + 0) as u16,
+                        (index + resol + 1) as u16,
+                        (index + resol) as u16,
+                    )
+                }
+            }
+        })
+        .collect::<Vec<Point3<u16>>>();
+
+    (coords, normals, uvs, indices)
 }
