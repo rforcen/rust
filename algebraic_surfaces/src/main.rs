@@ -2,8 +2,9 @@ use algebraic_surfaces::*;
 mod as_funcs;
 use as_funcs::calc_coords_mt;
 mod aux_funcs;
-use aux_funcs::*;
 mod evals;
+mod mt_as;
+use mt_as::*;
 
 extern crate kiss3d;
 extern crate nalgebra as na;
@@ -32,7 +33,6 @@ pub fn gen_nodes(
         resol * resol
     }; // 2^16, u16::MAX+1
 
-   
     (0..resol * resol)
         .step_by(chunk_size) // size/chunk:size + ramiander
         .map(|i| {
@@ -59,7 +59,7 @@ fn del_nodes(nodes: &mut Vec<SceneNode>, window: &mut Window) {
     nodes.clear();
 }
 
-fn main() {
+fn ui() {
     let resol = 1 << 8; // MUST be a power of 2
     let mut scale = 0.7;
 
@@ -139,4 +139,46 @@ fn main() {
             }
         }
     }
+}
+
+fn gen_obj_folder() {
+    // generate obj folder w/all surfaces
+    let resol = 256;
+
+    let _s = std::fs::create_dir("obj");
+
+    for n_func in 0..N_SURFACES {
+        let t = Instant::now();
+        let m = ASMesh::new(n_func, resol);
+        println!(
+            "lap for {:30} {}x{}: {:4.2?}, -> obj/{}.obj",
+            SURF_NAMES[n_func],
+            resol,
+            resol,
+            Instant::now() - t,
+            SURF_NAMES[n_func],
+        );
+        m.write_obj(&*format!("obj/{}.obj", SURF_NAMES[n_func]))
+            .unwrap()
+    }
+}
+
+fn gen_obj(n_func: usize) {
+    let resol = 512;
+    let t = Instant::now();
+    let m = ASMesh::new(n_func, resol);
+    println!(
+        "lap for {:30} {}x{}: {:4.2?}, -> {}.obj",
+        SURF_NAMES[n_func],
+        resol,
+        resol,
+        Instant::now() - t,
+        SURF_NAMES[n_func],
+    );
+    m.write_obj(&*format!("{}.obj", SURF_NAMES[n_func]))
+        .unwrap()
+}
+
+fn main() {
+    gen_obj_folder()
 }

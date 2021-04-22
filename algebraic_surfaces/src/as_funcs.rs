@@ -3,43 +3,13 @@
 #![allow(dead_code)]
 use nalgebra::{Point2, Point3, Vector3};
 use rayon::prelude::*;
-use std::f32::consts::PI;
 
 use crate::evals::*;
 use algebraic_surfaces::*;
 
-const TWO_PI: f32 = PI * 2.;
 
 pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
-    let ranges = [
-        [(0., PI), (0., PI)],
-        [(0., PI), (0., PI)],
-        [(0., 1.), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., PI), (0., PI)],
-        [(-20., 20.), (20., 80.)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(-1., 1.), (-1., 1.)],
-        [(1., 30.), (1., 30.)],
-        [(0., 1.), (-1., 1.)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (-PI, PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(-2., 2.), (-1., 1.)],
-        [(0., 3.), (0., TWO_PI)],
-        [(-10., 10.), (-10., 10.)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(-4., 4.), (-3.75, 3.75)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-        [(0., TWO_PI), (0., TWO_PI)],
-    ];
+
 
     let func = match n_func {
         0 => Cap_eval,
@@ -71,8 +41,8 @@ pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
         26 => Tanaka3_eval,
         _ => Dummy_eval,
     };
-    let range_u = ranges[n_func][0];
-    let range_v = ranges[n_func][1];
+    let range_u = RANGES[n_func][0];
+    let range_v = RANGES[n_func][1];
 
     let (from_u, dif_u) = (range_u.0, (range_u.1 - range_u.0).abs());
     let (from_v, dif_v) = (range_v.0, (range_v.1 - range_v.0).abs());
