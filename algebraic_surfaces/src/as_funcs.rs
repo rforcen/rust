@@ -8,39 +8,40 @@ use crate::evals::*;
 use algebraic_surfaces::*;
 
 
-pub fn calc_coords_mt(n_func: usize, resol: usize) -> Mesh {
+pub fn calc_coords_mt(func_name : FuncNames, resol: usize) -> Mesh {
 
 
-    let func = match n_func {
-        0 => Cap_eval,
-        1 => Boy_eval,
-        2 => Roman_eval,
-        3 => SeaShell_eval,
-        4 => TudorRose_eval,
-        5 => Breather_eval,
-        6 => KleinBottle_eval,
-        7 => KleinBottle0_eval,
-        8 => Bour_eval,
-        9 => Dini_eval,
-        10 => Enneper_eval,
-        11 => Scherk_eval,
-        12 => ConicalSpiral_eval,
-        13 => BohemianDome_eval,
-        14 => AstroidalEllipse_eval,
-        15 => Apple_eval,
-        16 => Ammonite_eval,
-        17 => PluckerConoid_eval,
-        18 => Cayley_eval,
-        19 => UpDownShell_eval,
-        20 => ButterFly_eval,
-        21 => Rose_eval,
-        22 => Kuen_eval,
-        23 => Tanaka0_eval,
-        24 => Tanaka1_eval,
-        25 => Tanaka2_eval,
-        26 => Tanaka3_eval,
-        _ => Dummy_eval,
+    let func = match func_name {
+        FuncNames::CAP => Cap_eval,
+        FuncNames::BOY => Boy_eval,
+        FuncNames::ROMAN => Roman_eval,
+        FuncNames::SEASHELL => SeaShell_eval,
+        FuncNames::TUDORROSE => TudorRose_eval,
+        FuncNames::BREATHER => Breather_eval,
+        FuncNames::KLEINBOTTLE => KleinBottle_eval,
+        FuncNames::KLEINBOTTLE0 => KleinBottle0_eval,
+        FuncNames::BOUR => Bour_eval,
+        FuncNames::DINI => Dini_eval,
+        FuncNames::ENNEPER => Enneper_eval,
+        FuncNames::SCHERK => Scherk_eval,
+        FuncNames::CONICALSPIRAL => ConicalSpiral_eval,
+        FuncNames::BOHEMIANDOME => BohemianDome_eval,
+        FuncNames::ASTROIDALELLIPSE => AstroidalEllipse_eval,
+        FuncNames::APPLE => Apple_eval,
+        FuncNames::AMMONITE => Ammonite_eval,
+        FuncNames::PLUCKERCONOID => PluckerConoid_eval,
+        FuncNames::CAYLEY => Cayley_eval,
+        FuncNames::UPDOWNSHELL => UpDownShell_eval,
+        FuncNames::BUTTERFLY => ButterFly_eval,
+        FuncNames::ROSE => Rose_eval,
+        FuncNames::KUEN => Kuen_eval,
+        FuncNames::TANAKA0 => Tanaka0_eval,
+        FuncNames::TANAKA1 => Tanaka1_eval,
+        FuncNames::TANAKA2 => Tanaka2_eval,
+        FuncNames::TANAKA3 => Tanaka3_eval,
+        // _ => Dummy_eval,
     };
+    let n_func = func_name as usize;
     let range_u = RANGES[n_func][0];
     let range_v = RANGES[n_func][1];
 

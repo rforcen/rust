@@ -304,6 +304,6 @@ pub fn Tanaka3_eval(s: f32, t: f32) -> Point3<f32> {
     )
 }
 
-pub fn Dummy_eval(_s: f32, _t: f32) -> Point3<f32> {
+pub fn _Dummy_eval(_s: f32, _t: f32) -> Point3<f32> {
     Point3::new(0., 0., 0.)
 }

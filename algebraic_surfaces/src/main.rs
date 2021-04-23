@@ -1,3 +1,6 @@
+// algebraic surfaces
+
+#![allow(dead_code)]
 use algebraic_surfaces::*;
 mod as_funcs;
 use as_funcs::calc_coords_mt;
@@ -15,7 +18,7 @@ use kiss3d::resource::Mesh;
 use kiss3d::scene::SceneNode;
 use kiss3d::window::Window;
 
-use na::{Point3, Vector3};
+use na::Vector3;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -63,10 +66,10 @@ fn ui() {
     let resol = 1 << 8; // MUST be a power of 2
     let mut scale = 0.7;
 
-    let mut ns = 4; // initial surface
+    let mut ns = FuncNames::first(); // initial surface
     let (mut update, mut refresh) = (true, true);
 
-    let mut window = Window::new(&*format!("{}", SURF_NAMES[ns]));
+    let mut window = Window::new(&*format!("{}", ns.to_string()));
 
     let mut nodes = vec![];
     let mut mesh: algebraic_surfaces::Mesh = (vec![], vec![], vec![], vec![]);
@@ -81,7 +84,7 @@ fn ui() {
             //
             println!(
                 "lap for {} {}x{}: {:?}",
-                SURF_NAMES[ns],
+                ns.to_string(),
                 resol,
                 resol,
                 Instant::now() - t
@@ -89,7 +92,7 @@ fn ui() {
 
             del_nodes(&mut nodes, &mut window);
             nodes = gen_nodes(resol, &mesh, &mut window, scale);
-            window.set_title(&*format!("{}", SURF_NAMES[ns]));
+            window.set_title(&*format!("{}", ns.to_string()));
 
             update = false;
         }
@@ -105,7 +108,7 @@ fn ui() {
                     if button == MouseButton::Button3 {
                         update = true;
                         refresh = true;
-                        ns = if ns == N_SURFACES - 1 { 0 } else { ns + 1 }
+                        ns = ns.next()
                     }
                 }
                 WindowEvent::Key(button, Action::Press, _) => {
@@ -113,20 +116,12 @@ fn ui() {
                         Key::Down => {
                             update = true;
                             refresh = true;
-                            if ns == 0 {
-                                N_SURFACES - 1
-                            } else {
-                                ns - 1
-                            }
+                            ns.prev()
                         }
                         Key::Up | Key::Space => {
                             update = true;
                             refresh = true;
-                            if ns == N_SURFACES - 1 {
-                                0
-                            } else {
-                                ns + 1
-                            }
+                            ns.next()
                         }
                         _ => {
                             update = false;
@@ -147,38 +142,42 @@ fn gen_obj_folder() {
 
     let _s = std::fs::create_dir("obj");
 
-    for n_func in 0..N_SURFACES {
+    for func_name in FuncNames::iterator() {
         let t = Instant::now();
-        let m = ASMesh::new(n_func, resol);
+        let m = ASMesh::new(*func_name, resol);
         println!(
             "lap for {:30} {}x{}: {:4.2?}, -> obj/{}.obj",
-            SURF_NAMES[n_func],
+            func_name.to_string(),
             resol,
             resol,
             Instant::now() - t,
-            SURF_NAMES[n_func],
+            func_name.to_string(),
         );
-        m.write_obj(&*format!("obj/{}.obj", SURF_NAMES[n_func]))
+        m.write_obj(&*format!("obj/{}.obj", func_name.to_string()))
             .unwrap()
     }
 }
 
-fn gen_obj(n_func: usize) {
+fn gen_obj(func_name: FuncNames) {
     let resol = 512;
     let t = Instant::now();
-    let m = ASMesh::new(n_func, resol);
+
+    let m = ASMesh::new(func_name, resol);
+
     println!(
         "lap for {:30} {}x{}: {:4.2?}, -> {}.obj",
-        SURF_NAMES[n_func],
+        func_name.to_string(),
         resol,
         resol,
         Instant::now() - t,
-        SURF_NAMES[n_func],
+        func_name.to_string(),
     );
-    m.write_obj(&*format!("{}.obj", SURF_NAMES[n_func]))
+
+    m.write_obj(&*format!("{}.obj", func_name.to_string()))
         .unwrap()
 }
 
 fn main() {
-    gen_obj_folder()
+    // ui()
+    gen_obj(FuncNames::TUDORROSE)
 }
