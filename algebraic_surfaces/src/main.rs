@@ -136,48 +136,8 @@ fn ui() {
     }
 }
 
-fn gen_obj_folder() {
-    // generate obj folder w/all surfaces
-    let resol = 256;
-
-    let _s = std::fs::create_dir("obj");
-
-    for func_name in FuncNames::iterator() {
-        let t = Instant::now();
-        let m = ASMesh::new(*func_name, resol);
-        println!(
-            "lap for {:30} {}x{}: {:4.2?}, -> obj/{}.obj",
-            func_name.to_string(),
-            resol,
-            resol,
-            Instant::now() - t,
-            func_name.to_string(),
-        );
-        m.write_obj(&*format!("obj/{}.obj", func_name.to_string()))
-            .unwrap()
-    }
-}
-
-fn gen_obj(func_name: FuncNames) {
-    let resol = 512;
-    let t = Instant::now();
-
-    let m = ASMesh::new(func_name, resol);
-
-    println!(
-        "lap for {:30} {}x{}: {:4.2?}, -> {}.obj",
-        func_name.to_string(),
-        resol,
-        resol,
-        Instant::now() - t,
-        func_name.to_string(),
-    );
-
-    m.write_obj(&*format!("{}.obj", func_name.to_string()))
-        .unwrap()
-}
 
 fn main() {
     // ui()
-    gen_obj(FuncNames::TUDORROSE)
+    gen_obj(FuncNames::TUDORROSE, 512)
 }

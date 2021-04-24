@@ -21,6 +21,7 @@ pub struct ASMesh {
 }
 
 impl ASMesh {
+  
     pub fn new(func_name: FuncNames, resol: usize) -> ASMesh {
         let func = match func_name {
             FuncNames::CAP => Cap_eval,
@@ -65,7 +66,7 @@ impl ASMesh {
 
         let size = resol * resol;
         // vertices & uv's
-        let mut mesh = (0..size)
+        let mesh = (0..size)
             .into_par_iter()
             .map(|i| {
                 let (u, v) = (
@@ -73,45 +74,19 @@ impl ASMesh {
                     scale_v((i % resol) as f32 * delta),
                 );
                 let vertex = func(u, v);
-                let normal = Vector3::zeros();
+                let normal = Self::calc_normal(&vertex, &func(u + delta, v), &func(u, v + delta));
                 let uv = Point2::new(u, v);
 
                 Mesh { vertex, normal, uv }
             })
             .collect::<Vec<_>>();
 
-        // normals
-        let normals = (0..size)
-            .into_par_iter()
-            .map(|i| {
-                fn calc_normal(
-                    v0: &Point3<f32>,
-                    v1: &Point3<f32>,
-                    v2: &Point3<f32>,
-                ) -> Vector3<f32> {
-                    (v2 - v0).cross(&(v1 - v0)).normalize()
-                }
-                let i1 = if i + 1 >= size { i - 1 } else { i + 1 };
-                let i2 = if i + resol >= size {
-                    i - resol
-                } else {
-                    i + resol
-                };
-                calc_normal(&mesh[i].vertex, &mesh[i1].vertex, &mesh[i2].vertex)
-            })
-            .collect::<Vec<_>>();
-
-        // copy normals to mesh
-        mesh.par_iter_mut()
-            .enumerate()
-            .for_each(|(i, m)| m.normal = normals[i]);
-        // for (i, m) in mesh.iter_mut().enumerate() { // ST version works better in small set of data
-        //     m.normal = normals[i]
-        // }
-
         ASMesh { resol, mesh }
     }
 
+    fn calc_normal(v0: &Point3<f32>, v1: &Point3<f32>, v2: &Point3<f32>) -> Vector3<f32> {
+        (v2 - v0).cross(&(v1 - v0)).normalize()
+    }
     pub fn write_obj(&self, path: &str) -> std::io::Result<()> {
         let mut buff_write = BufWriter::new(File::create(path).unwrap());
 
@@ -150,4 +125,46 @@ impl ASMesh {
         buff_write.flush()?;
         Ok(())
     }
+}
+
+use std::time::Instant;
+
+pub fn gen_obj_folder() {
+    // generate obj folder w/all surfaces
+    let resol = 256;
+
+    let _s = std::fs::create_dir("obj");
+
+    for func_name in FuncNames::iterator() {
+        let t = Instant::now();
+        let m = ASMesh::new(*func_name, resol);
+        println!(
+            "lap for {:30} {}x{}: {:4.2?}, -> obj/{}.obj",
+            func_name.to_string(),
+            resol,
+            resol,
+            Instant::now() - t,
+            func_name.to_string(),
+        );
+        m.write_obj(&*format!("obj/{}.obj", func_name.to_string()))
+            .unwrap()
+    }
+}
+
+pub fn gen_obj(func_name: FuncNames, resol: usize) {
+    let t = Instant::now();
+
+    let m = ASMesh::new(func_name, resol);
+
+    println!(
+        "lap for {:30} {}x{}: {:4.2?}, -> {}.obj",
+        func_name.to_string(),
+        resol,
+        resol,
+        Instant::now() - t,
+        func_name.to_string(),
+    );
+
+    m.write_obj(&*format!("{}.obj", func_name.to_string()))
+        .unwrap()
 }
