@@ -44,6 +44,9 @@
 </li><li>
 <p><span style="color: #ff0000;">algebraic surfaces</span></p>
 </li>
+  <li>
+<p><span style="color: #ff0000;">logarithmic spirals</span></p>
+</li>
 </ul>
 <p>using <strong><span style="color: #ff0000;">druid</span></strong> UI builder, kiss3d with multithreaded user control</p>
 <p style="margin-bottom: 0in;">&nbsp;</p>
