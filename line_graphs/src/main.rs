@@ -6,6 +6,9 @@ mod harmonigraph3d;
 use crate::harmonigraph3d::*;
 mod harmonigraph;
 use crate::harmonigraph::*;
+mod lissajous;
+use lissajous::*;
+
 mod music_freq;
 
 use kiss3d::window::Window;
@@ -33,6 +36,16 @@ fn do_hg() {
         hg.next();
     }
 }
+fn do_lissajous() {
+    let mut window = Window::new("lissajous");
+    let mut lj = Lissajous::new().with_preset(1).with_scale(0.3);
+
+    while window.render() {
+        for line in &mut lj.generate_lines(window.size().y as usize).windows(2) {
+            window.draw_planar_line(&line[0].0, &line[1].0, &line[0].1);
+        }
+    }
+}
 
 fn do_hg3d() {
     let mut window = Window::new("harmonigraph 3d");
@@ -48,6 +61,7 @@ fn do_hg3d() {
 
 fn main() {
     // do_spiral()
-    // do_hg3d() 
-    do_hg()
+    // do_hg3d()
+    // do_hg()
+    do_lissajous()
 }
