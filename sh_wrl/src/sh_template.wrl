@@ -1,0 +1,31 @@
+#VRML V2.0 utf8
+
+Shape {
+    geometry IndexedFaceSet {
+            colorPerVertex FALSE
+
+		    coord Coordinate {
+			    point [
+                   0 0 0, 
+                   1 0 0, 
+                   1 1 0, 
+                   0 1 0, 
+                   0 0 1, 
+                   1 0 1, 
+                   1 1 1, 
+                   0 1 1,
+			    ]
+			}
+            coordIndex [ # start from 0
+                0,4,5,1,-1,
+                1,5,6,2,-1,
+            ]
+		    color Color {
+			color [
+			    1 0 0,
+                0 1 0,
+			]
+		    }
+		    
+		}
+}
