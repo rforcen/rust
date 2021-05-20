@@ -1,105 +1,79 @@
 // lorentz attractor
 
-use nalgebra::*;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::*;
 
+use crate::color_interp;
+use crate::vector3d::*;
+
 const N_ITERATIONS: usize = 300_000;
 
 pub struct Lorentz {
-    p0: Point3<f32>,
-    a: f32,
-    b: f32,
-    c: f32,
-    h: f32,
-    iterations: usize,
-    ni: usize,
-    pub pnts: Vec<Point3<f32>>,
+    pub points: Vec<Vector3d<f32>>,
 }
 
 impl Lorentz {
     pub fn new() -> Self {
-        let mut s = Self {
-            p0: Point3::new(0., -2., -1.),
-            a: 10.,
-            b: 28.,
-            c: 8. / 3.,
-            h: 0.015,
-            iterations: N_ITERATIONS,
-            ni: 0,
-            pnts: vec![],
-        };
-        s.pnts = s.calc();
-        s
+        Self {
+            points: Self::calc_points(),
+        }
     }
-    pub fn calc(&mut self) -> Vec<Point3<f32>> {
-        (0..self.iterations)
-            .map(|_| {
-                // lorentz linear function set
-                self.p0 = Point3::new(
-                    self.p0.x + self.h * self.a * (self.p0.y - self.p0.x),
-                    self.p0.y + self.h * (self.p0.x * (self.b - self.p0.z) - self.p0.y),
-                    self.p0.z + self.h * (self.p0.x * self.p0.y - self.c * self.p0.z),
-                );
-                // solution becomes next seed
-                self.ni += 1;
+    fn calc_points() -> Vec<Vector3d<f32>> {
+        let mut p = Vector3d::new(0., -2., -1.);
+        let (a, b, c, h) = (10., 28., 8. / 3., 0.015);
 
-                self.p0 * 0.1
+        (0..N_ITERATIONS)
+            .map(|_| {
+                // lorentz linear function set l(i+1)=L(l(i))
+                p.set(
+                    p.x + h * a * (p.y - p.x),
+                    p.y + h * (p.x * (b - p.z) - p.y),
+                    p.z + h * (p.x * p.y - c * p.z),
+                )
             })
             .collect()
     }
     pub fn write_wrl(&self, path: &str) {
-        // scale distances
-        let distances: Vec<f32> = self
-            .pnts
-            .iter()
-            .map(|p| distance(p, &Point3::origin()))
-            .collect();
-        let max = distances
-            .iter()
-            .max_by(|x, y| x.partial_cmp(&y).unwrap())
-            .unwrap();
-        let distances = distances.iter().map(|d| *d / *max).collect::<Vec<_>>();
+        fn wrt(bw: &mut BufWriter<File>, s: &str) {
+            bw.write(s.as_bytes()).unwrap();
+        }
+        let distances = Vector3d::scaled_distances(&self.points);
 
         let mut bw = BufWriter::new(File::create(path).unwrap());
-        bw.write(
+        wrt(
+            &mut bw,
             "#VRML V2.0 utf8 
 Shape {
     geometry PointSet {
         coord Coordinate {
-            point [\n"
-                .as_bytes(),
-        )
-        .unwrap();
+            point [\n",
+        );
 
-        for p in &self.pnts {
-            bw.write(format!("{:.3} {:.3} {:.3},\n", p.x, p.y, p.z).as_bytes())
-                .unwrap();
+        for p in &self.points {
+            wrt(&mut bw, &*format!("{},\n", p));
         }
-        bw.write(
+        wrt(
+            &mut bw,
             "]
     }
     color Color {
-        color ["
-                .as_bytes(),
-        )
-        .unwrap();
+        color [",
+        );
 
         // colors -> distance
         for d in &distances {
-            bw.write(format!("0.6 0.8 {:.3},\n", *d).as_bytes())
-                .unwrap();
+            let (r, g, b) = color_interp::interpolate(0xff0000, 0xff, *d);
+            wrt(&mut bw, &*format!("{:.2} {:.2} {:.2},\n", r, g, b));
         }
 
-        bw.write(
+        wrt(
+            &mut bw,
             "]
     }
 }
-}"
-            .as_bytes(),
-        )
-        .unwrap();
+}",
+        );
         bw.flush().unwrap();
     }
 }
