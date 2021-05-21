@@ -1,7 +1,7 @@
 // harmonigraph.rs
+use crate::color_interp::*;
 use line_graphs::*;
 use nalgebra::{Point2, Point3};
-use palette::{LinSrgb, Mix};
 use rayon::prelude::*;
 
 const MAX_ITER: usize = 8000;
@@ -70,21 +70,16 @@ impl HarmoniGraph {
             (x, y)
         };
 
-        let red = LinSrgb::new(1., 0., 0.);
-        let violet = LinSrgb::new(1., 1., 0.);
-
         let w4 = self.scale * w as f32 / 4.;
 
         (0..MAX_ITER)
             .into_par_iter()
             .map(|i| {
                 let (x, y) = calc_coord(i as f32 * self.t_inc);
-
-                let (r, g, b) = red
-                    .mix(&violet, i as f32 / MAX_ITER as f32)
-                    .into_components();
-
-                (Point2::new(x * w4, y * w4), Point3::new(r, g, b))
+                (
+                    Point2::new(x * w4, y * w4),
+                    Point3::from(default_interpolate(i as f32 / MAX_ITER as f32)),
+                )
             })
             .collect()
     }

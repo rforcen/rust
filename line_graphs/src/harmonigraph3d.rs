@@ -2,8 +2,8 @@
 // harmonigraph3d.rs
 use line_graphs::{LinesVec3D, PI2};
 use nalgebra::Point3;
-use palette::{LinSrgb, Mix};
 use rayon::prelude::*;
+use crate::color_interp::*;
 
 pub struct HarmoniGraph3D {
     p1: f32,
@@ -60,8 +60,6 @@ impl HarmoniGraph3D {
         let calc_distance = |x: f32, y: f32, z: f32| (x * x + y * y + z * z).sqrt();
         let ramainder = |x: f32| x.rem_euclid(1.);
 
-        let red = LinSrgb::new(1., 0., 0.);
-        let violet = LinSrgb::new(1., 0., 1.);
 
         let sp_space = 3e-5;
         let size = 1.;
@@ -88,9 +86,9 @@ impl HarmoniGraph3D {
                 _ => 1.,
             };
 
-            let mix = red.mix(&violet, ratio);
+    
 
-            (x, y, z, mix.into_components()) // coord & color(r,g,b)
+            (x, y, z, interpolate(0xff_00_00, 0x00_00_ff, ratio)) // coord & color(r,g,b)
         };
 
         (0..n_coords) // parallel generator
